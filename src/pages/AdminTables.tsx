@@ -401,10 +401,19 @@ export default function AdminTables() {
   }
 
   async function load() {
+    console.log('🔄 Loading tables for slug:', slug);
+    console.log('🔑 Using admin token:', adminToken ? 'SET' : 'NOT SET');
+    
     setLoading(true);
     try {
       const res = await fetchTables(slug);
+      console.log('📊 Fetch result:', res);
+      console.log('📋 Tables data:', res.data);
+      console.log('📏 Tables count:', res.data?.length || 0);
+      
       setRows(res.data || []);
+    } catch (error) {
+      console.error('💥 Error in load():', error);
     } finally { 
       setLoading(false); 
     }

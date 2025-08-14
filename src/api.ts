@@ -164,17 +164,54 @@ export function toggleItem(slug: string, id: number) {
 
 /* -------- ADMIN: Tables -------- */
 export type TableRow = { id:number; table_number:string|number; table_token?:string|null };
+type TableLike = Record<string, unknown>;
 
-export async function fetchTables(slug: string): Promise<{ ok: boolean; data: TableRow[] }> {
-  const raw = await getJson(`${BASE}/a/${encodeURIComponent(slug)}/api/tables`, {
-    credentials: 'include',
-    headers: { Accept: 'application/json', ...tokenHeaderMaybe() },
-  });
+export async function fetchTables(
+  slug: string
+): Promise<{ ok: boolean; data: TableRow[] }> {
+  console.log("🔍 Fetching tables for slug:", slug);
 
-  // Backend liefert entweder { ok, data: [...] } oder direkt [...]
-  if (Array.isArray(raw?.data)) return { ok: true, data: raw.data as TableRow[] };
-  if (Array.isArray(raw))        return { ok: true, data: raw as TableRow[] };
-  return { ok: !!raw?.ok, data: Array.isArray(raw?.items) ? raw.items : [] };
+  try {
+    const raw = await getJson(`${BASE}/a/${encodeURIComponent(slug)}/api/tables`, {
+      credentials: "include",
+      headers: { Accept: "application/json", ...tokenHeaderMaybe() },
+    });
+    console.log("📡 Raw backend response:", raw);
+
+    // -> locker casten, damit TS nicht nörgelt
+    const r: any = raw;
+
+    // Kandidaten-Arrays in Priorität
+    const candidates = [r?.data, r?.data?.data, r?.items, r];
+
+    let tablesArray: TableLike[] = [];
+    for (const c of candidates) {
+      if (Array.isArray(c)) {
+        tablesArray = c as TableLike[];
+        break;
+      }
+    }
+
+    console.log("📋 Using tables array with length:", tablesArray.length);
+    if (tablesArray[0]) {
+      console.log("🔍 First element keys:", Object.keys(tablesArray[0] as object));
+    }
+
+    // Typisierte Map-Callback-Parameter -> kein "implicit any"
+    const normalizedData: TableRow[] = tablesArray
+      .map((item: TableLike, index: number) => {
+        const mapped = mapTableRow(item);
+        console.log(`✅ Mapped[${index}]:`, mapped);
+        return mapped;
+      })
+      .filter((x): x is TableRow => Boolean(x));
+
+    const ok = typeof r?.ok === "boolean" ? (r.ok as boolean) : true;
+    return { ok, data: normalizedData };
+  } catch (error) {
+    console.error("❌ Error fetching tables:", error);
+    return { ok: false, data: [] };
+  }
 }
 
 export async function getCurrentTotal(slug: string, table_number: string | number) {
@@ -255,19 +292,6 @@ function mapTableRow(x: any): TableRow | null {
 
   if (!Number.isFinite(id) || table_number == null) return null;
   return { id, table_number, table_token };
-}
-
-function normalizeTablesPayload(raw: any): TableRow[] {
-  // akzeptiere: { ok:true, data:[...] } | { data:{ items:[...] }} | [...] | { items:[...] }
-  const arr =
-    (Array.isArray(raw?.data) && raw.data) ||
-    (Array.isArray(raw?.items) && raw.items) ||
-    (Array.isArray(raw) && raw) ||
-    (Array.isArray(raw?.data?.items) && raw.data.items) ||
-    [];
-
-  const mapped = arr.map(mapTableRow).filter(Boolean) as TableRow[];
-  return mapped;
 }
 
 /* -------- QR Helper -------- */
