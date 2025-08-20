@@ -143,7 +143,7 @@ export default function App() {
                   isAdminRoute ? "bg-slate-800 text-slate-400" : "bg-gray-100 text-gray-500"
                 }`}
               >
-                React + Vite + TS
+                SmartQR - v1.0
               </div>
             </div>
           </div>
