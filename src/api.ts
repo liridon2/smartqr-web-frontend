@@ -93,6 +93,12 @@ export function submitOrder(slug: string, payload: any) {
   });
 }
 
+export function fetchTableNumberByToken(slug: string, token: string) {
+  return getJson(`${BASE}/c/${encodeURIComponent(slug)}/api/table-number?t=${encodeURIComponent(token)}`, {
+    headers: { Accept: 'application/json' }
+  });
+}
+
 /* -------- ADMIN: Orders -------- */
 export async function fetchAdminOrders(slug: string) {
   const j = await getJson(`${BASE}/a/${encodeURIComponent(slug)}/api/orders`, {
