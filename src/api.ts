@@ -300,6 +300,39 @@ function mapTableRow(x: any): TableRow | null {
   return { id, table_number, table_token };
 }
 
+// — Kellner-spezifische Calls —
+export type OrderItemRow = { menu_item_id:number; name?:string; quantity:number; price:number };
+export type OrderRow = {
+  id: number;
+  order_number: string;
+  table_id: number;
+  table_number?: string | number;
+  items: OrderItemRow[];
+  total_amount: number;
+  order_status: string;
+  payment_status: string;
+  created_at?: string;
+};
+
+export async function fetchOrdersForTable(slug: string, table_number: string | number) {
+  const j = await getJson(`${BASE}/a/${encodeURIComponent(slug)}/api/orders?table_number=${encodeURIComponent(String(table_number))}`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json', ...tokenHeaderMaybe?.() }
+  });
+  // Backend liefert Array direkt (json_ok($rows))
+  const data = Array.isArray(j?.data) ? j.data : (Array.isArray(j) ? j : []);
+  return { ok: true, data: data as unknown as OrderRow[] };
+}
+
+export async function markTablePaid(slug: string, table_number: string | number) {
+  return getJson(`${BASE}/a/${encodeURIComponent(slug)}/api/tables/mark-paid`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...tokenHeaderMaybe?.() },
+    body: JSON.stringify({ table_number: String(table_number) }),
+  });
+}
+
 /* -------- QR Helper -------- */
 export function buildCustomerUrl(slug: string, table_token: string) {
   const base =

@@ -8,6 +8,7 @@ import AdminHome from "./pages/AdminHome";
 import AdminTables from "./pages/AdminTables";
 import { authMe } from "./api";
 import Login from "./pages/Login";
+import WaiterDesk from "./pages/WaiterDesk";
 
 export default function App() {
   const location = useLocation();
@@ -156,6 +157,7 @@ export default function App() {
         <Route path="/a/:slug/menu" element={<AdminMenu />} />
         <Route path="/a/:slug/home" element={<AdminHome />} />
         <Route path="/a/:slug/tables" element={<AdminTables />} />
+        <Route path="/w/:slug" element={<WaiterDesk />} />
         <Route path="/login" element={<Login />} /> 
       </Routes>
     </div>
