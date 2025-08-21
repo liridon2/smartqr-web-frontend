@@ -1,80 +1,132 @@
+// CustomerOrder.tsx - Erweitert um Floating Action Button und Payment Modal
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { fetchCustomerMenu, submitOrder, fetchTableNumberByToken } from "../api";
+import {
+  fetchCustomerMenu,
+  fetchTableNumberByToken,
+  submitOrder,
+} from "../api";
+import type { MenuItem } from "../types";
 
-/** Lokaler Fallback-Typ; stört nicht, wenn du schon types.ts hast. */
-type MenuItem = {
-  id: number;
-  name: string;
-  description?: string | null;
-  price: number;
-  is_available?: boolean | number;
-  image_url?: string | null;
-};
-
-type Cart = Record<number, number>; // menu_item_id -> quantity
+type Cart = Record<number, number>;
 
 function money(n: number) {
   return (Math.round(n * 100) / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-// Dark Theme Background Component
+// Dark animated background component
 const DarkBackground = () => {
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-gradient-to-br from-emerald-500/10 to-blue-600/10 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-gradient-to-br from-purple-500/10 to-emerald-600/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      
-      {/* Floating food icons */}
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div
-          key={i}
-          className="absolute text-4xl opacity-5 animate-float"
-          style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 8}s`,
-            animationDuration: `${6 + Math.random() * 4}s`
-          }}
-        >
-          {['🍕', '🍔', '🍝', '🥗', '🍖', '🍤', '🍰', '☕'][i]}
+    <>
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.1),transparent_50%)] opacity-30" />
+      <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+    </>
+  );
+};
+
+// Payment Modal Component
+const PaymentModal = ({ 
+  isOpen, 
+  onClose, 
+  total 
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  total: number;
+}) => {
+  if (!isOpen) return null;
+
+  const paymentMethods = [
+    { name: 'Kreditkarte', icon: '💳', color: 'from-blue-600 to-blue-700' },
+    { name: 'PayPal', icon: '🅿️', color: 'from-blue-500 to-blue-600' },
+    { name: 'Apple Pay', icon: '🍎', color: 'from-gray-800 to-black' },
+    { name: 'Google Pay', icon: '🔵', color: 'from-green-600 to-green-700' },
+    { name: 'SEPA Lastschrift', icon: '🏛️', color: 'from-indigo-600 to-indigo-700' },
+    { name: 'Bar bezahlen', icon: '💵', color: 'from-green-600 to-green-700' }
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+      <div className="bg-slate-800 rounded-3xl shadow-2xl border border-slate-700 p-6 max-w-md w-full animate-scaleIn max-h-[90vh] overflow-y-auto">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold text-white">Bezahlung</h3>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-slate-700 hover:bg-slate-600 text-white transition-colors duration-200 flex items-center justify-center"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Total Amount */}
+          <div className="bg-gradient-to-r from-emerald-900/30 to-emerald-800/30 rounded-2xl p-6 border border-emerald-700/50">
+            <div className="text-center space-y-2">
+              <div className="text-slate-300 text-sm">Gesamtbetrag</div>
+              <div className="text-4xl font-bold text-emerald-400">{money(total)}</div>
+              <div className="text-slate-400 text-xs">inkl. MwSt.</div>
+            </div>
+          </div>
+
+          {/* Payment Methods */}
+          <div className="space-y-3">
+            <div className="text-white font-semibold text-lg">Zahlungsmethode wählen</div>
+            <div className="grid gap-3">
+              {paymentMethods.map((method, index) => (
+                <button
+                  key={method.name}
+                  className={`w-full p-4 rounded-2xl bg-gradient-to-r ${method.color} hover:scale-105 transform transition-all duration-200 shadow-lg hover:shadow-xl text-white font-semibold flex items-center gap-4`}
+                  onClick={() => {
+                    // Hier später Stripe Integration
+                    console.log(`Payment method selected: ${method.name}`);
+                    alert(`${method.name} ausgewählt - Stripe Integration folgt`);
+                  }}
+                >
+                  <span className="text-2xl">{method.icon}</span>
+                  <span className="flex-1 text-left">{method.name}</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Security Note */}
+          <div className="bg-slate-900/50 rounded-2xl p-4 flex items-start gap-3">
+            <div className="text-green-400 text-xl">🔒</div>
+            <div className="text-sm text-slate-300">
+              <div className="font-semibold text-white mb-1">Sichere Zahlung</div>
+              Ihre Zahlungsdaten werden verschlüsselt und sicher übertragen.
+            </div>
+          </div>
         </div>
-      ))}
-      
-      {/* Grid pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <svg width="100" height="100" viewBox="0 0 100 100" className="w-full h-full">
-          <defs>
-            <pattern id="customerGrid" width="100" height="100" patternUnits="userSpaceOnUse">
-              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#1f2937" strokeWidth="1"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#customerGrid)" />
-        </svg>
       </div>
     </div>
   );
 };
 
-// Enhanced Menu Item Card
-const MenuItemCard = ({ item, quantity, onAdd, onSub }: {
+// Menu Item Card Component
+const MenuItemCard = ({
+  item,
+  quantity,
+  onAdd,
+  onSub,
+}: {
   item: MenuItem;
   quantity: number;
   onAdd: () => void;
   onSub: () => void;
 }) => {
   return (
-    <article className="group bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 hover:bg-slate-800/70 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-emerald-500/10 overflow-hidden">
-      {/* Quantity indicator */}
-      {quantity > 0 && (
-        <div className="absolute top-4 right-4 bg-emerald-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-lg animate-pulse">
-          {quantity}
-        </div>
-      )}
-
-      {/* Item image placeholder */}
-      <div className="w-full h-32 bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl mb-4 flex items-center justify-center overflow-hidden relative group-hover:scale-105 transition-transform duration-300">
+    <div className="group relative bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-500 hover:transform hover:scale-[1.02] shadow-xl hover:shadow-2xl hover:shadow-emerald-500/10">
+      {/* Image section */}
+      <div className="relative w-full h-48 rounded-2xl overflow-hidden mb-6 bg-slate-700">
         {item.image_url ? (
           <img 
             src={item.image_url} 
@@ -143,118 +195,48 @@ const MenuItemCard = ({ item, quantity, onAdd, onSub }: {
       </div>
 
       {/* Hover glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-3xl"></div>
-    </article>
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-blue-500/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+    </div>
   );
 };
 
-// Enhanced Cart Summary Component
-const CartSummary = ({ items, total, notes, onNotesChange, onClear, onSubmit, submitting, disabled }: {
-  items: Array<{item: MenuItem; qty: number}>;
+// Floating Action Button Component
+const FloatingActionButton = ({ 
+  total, 
+  itemCount, 
+  onClick 
+}: {
   total: number;
-  notes: string;
-  onNotesChange: (value: string) => void;
-  onClear: () => void;
-  onSubmit: () => void;
-  submitting: boolean;
-  disabled: boolean;
+  itemCount: number;
+  onClick: () => void;
 }) => {
+  if (itemCount === 0) return null;
+
   return (
-    <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-8 h-8 bg-emerald-600 rounded-xl flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
-          </svg>
+    <div className="fixed bottom-6 right-6 z-40">
+      <button
+        onClick={onClick}
+        className="group relative bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white p-4 rounded-full shadow-2xl hover:shadow-emerald-500/30 transition-all duration-300 hover:scale-110 border-2 border-emerald-500/30"
+      >
+        {/* Notification Badge */}
+        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
+          {itemCount}
         </div>
-        <h2 className="text-xl font-bold text-white">Warenkorb</h2>
-        {items.length > 0 && (
-          <div className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg text-sm font-medium">
-            {items.length} Artikel
-          </div>
-        )}
-      </div>
-
-      {items.length === 0 ? (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4" />
-            </svg>
-          </div>
-          <p className="text-slate-400">Noch keine Artikel ausgewählt.</p>
+        
+        {/* Payment Icon */}
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+        
+        {/* Ripple Effect */}
+        <div className="absolute inset-0 rounded-full bg-emerald-400 opacity-0 group-hover:opacity-20 group-hover:scale-150 transition-all duration-500" />
+        
+        {/* Total Amount Tooltip */}
+        <div className="absolute bottom-full right-0 mb-2 bg-slate-800 text-white px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg border border-slate-700">
+          {money(total)}
+          <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800" />
         </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Cart Items */}
-          <div className="space-y-3">
-            {items.map(({ item, qty }) => (
-              <div key={item.id} className="flex items-center justify-between py-3 border-b border-slate-700/30 last:border-0">
-                <div className="flex-1">
-                  <div className="font-medium text-white">{item.name}</div>
-                  <div className="text-sm text-slate-400">{qty} × {money(item.price)}</div>
-                </div>
-                <div className="font-bold text-emerald-400">{money(item.price * qty)}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Anmerkungen Field */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-slate-300">
-              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              <span className="text-sm font-medium">Anmerkungen</span>
-            </div>
-            <textarea
-              className="w-full bg-slate-900/50 border border-slate-600/50 rounded-2xl px-4 py-3 text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-300 resize-none text-sm"
-              rows={3}
-              placeholder="Allergien, Sonderwünsche, etc..."
-              value={notes}
-              onChange={(e) => onNotesChange(e.target.value)}
-            />
-          </div>
-
-          {/* Total */}
-          <div className="border-t border-slate-700/50 pt-4">
-            <div className="flex items-center justify-between text-lg">
-              <span className="font-semibold text-slate-300">Gesamt:</span>
-              <span className="font-bold text-2xl text-emerald-400">{money(total)}</span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={onClear}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white py-3 px-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={submitting}
-            >
-              Leeren
-            </button>
-            <button
-              onClick={onSubmit}
-              className="flex-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white py-3 px-6 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/25"
-              disabled={disabled || submitting}
-            >
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Sende...
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  Bestellen
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
+      </button>
     </div>
   );
 };
@@ -333,6 +315,9 @@ export default function CustomerOrder() {
 
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ order_number: string; total: number } | null>(null);
+  
+  // Payment Modal State
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   // Menü laden
   useEffect(() => {
@@ -370,48 +355,59 @@ export default function CustomerOrder() {
       if (!tableToken) return;     // ohne Token nichts tun
       try {
         const j = await fetchTableNumberByToken(slug, tableToken);
-        const tn = j?.data?.table_number ?? j?.table_number ?? j?.data?.table ?? j?.table ?? "";
+        const tn = j?.data?.table_number ?? j?.table_number ?? j?.data?.table ?? j?.table ?? 
+          j?.data?.number ?? j?.number ?? "";
         if (!cancel) setResolvedTableNumber(String(tn));
-      } catch (e) {
-        console.warn("Token→Nummer failed:", e);
+      } catch (e: any) {
+        console.warn("Token -> Tischnummer failed:", e?.message || e);
       }
     }
     resolveNumber();
     return () => { cancel = true; };
   }, [slug, tableToken]);
 
-  // Cart im localStorage speichern
+  // Cart persistent speichern
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(cart));
   }, [cart, storageKey]);
 
-  // Berechnungen
+  // Cart helpers
   const itemsInCart = useMemo(() => {
-    const pairs: Array<{ item: MenuItem; qty: number }> = [];
-    for (const [idStr, qty] of Object.entries(cart)) {
-      if (qty <= 0) continue;
-      const item = menu.find((it) => it.id === Number(idStr));
-      if (item) pairs.push({ item, qty });
-    }
-    return pairs;
-  }, [cart, menu]);
+    return menu
+      .map((item) => ({ item, qty: cart[item.id] || 0 }))
+      .filter(({ qty }) => qty > 0);
+  }, [menu, cart]);
 
   const total = useMemo(() => {
     return itemsInCart.reduce((sum, { item, qty }) => sum + item.price * qty, 0);
   }, [itemsInCart]);
 
-  // Cart-Funktionen
-  const add = (id: number) => setCart(c => ({ ...c, [id]: (c[id] || 0) + 1 }));
-  const sub = (id: number) => setCart(c => ({ ...c, [id]: Math.max(0, (c[id] || 0) - 1) }));
+  const totalItems = useMemo(() => {
+    return itemsInCart.reduce((sum, { qty }) => sum + qty, 0);
+  }, [itemsInCart]);
+
   const clearCart = () => setCart({});
+  const addToCart = (itemId: number) => {
+    setCart((prev) => ({ ...prev, [itemId]: (prev[itemId] || 0) + 1 }));
+  };
+  const subFromCart = (itemId: number) => {
+    setCart((prev) => {
+      const newQty = (prev[itemId] || 0) - 1;
+      if (newQty <= 0) {
+        const { [itemId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [itemId]: newQty };
+    });
+  };
 
-  // Bestellen
-  const onSubmit = async () => {
-    if (itemsInCart.length === 0) return;
-
+  // Submit Order
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     const finalTableNumber = resolvedTableNumber || tableNumber;
     if (!finalTableNumber) {
-      setError("Tischnummer konnte nicht ermittelt werden.");
+      setError("Tischnummer fehlt. Bitte QR-Code erneut scannen.");
       return;
     }
 
@@ -459,6 +455,20 @@ export default function CustomerOrder() {
         />
       )}
 
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        total={total}
+      />
+
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        total={total}
+        itemCount={totalItems}
+        onClick={() => setIsPaymentModalOpen(true)}
+      />
+
       {/* Header */}
       <header className="relative bg-slate-900/80 backdrop-blur-2xl border-b border-slate-700/50 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 sm:py-6">
@@ -467,206 +477,267 @@ export default function CustomerOrder() {
             <div className="space-y-1 sm:space-y-2">
               <div className="flex items-center gap-2 sm:gap-3">
                 <h1 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-white via-emerald-400 to-white bg-clip-text text-transparent">
-                  <span className="sm:hidden">Menü</span>
-                  <span className="hidden sm:inline">Digitale Speisekarte</span>
+                  <span className="hidden sm:inline">SmartQR</span>
+                  <span className="sm:hidden">SQR</span>
                 </h1>
-                <div className="flex items-center gap-1 sm:gap-2 bg-emerald-500/20 text-emerald-400 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm">
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                  LIVE
+                <div className="w-1 h-6 sm:h-8 bg-emerald-400 rounded-full"></div>
+                <div className="text-lg sm:text-xl font-semibold text-slate-300">
+                  Digitale Speisekarte
                 </div>
               </div>
               
-              {/* Table & Total Info - Mobile Stack */}
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 text-xs sm:text-sm">
-                <div className="text-slate-400">
-                  Tisch: <span className="text-emerald-400 font-medium">
-                    {resolvedTableNumber || tableNumber || "per Token"}
+              {/* Table Info */}
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span className="font-medium">
+                  Tisch {resolvedTableNumber || tableNumber || "?"}
+                </span>
+                {resolvedTableNumber && tableNumber && resolvedTableNumber !== tableNumber && (
+                  <span className="text-xs px-2 py-0.5 bg-emerald-900/30 text-emerald-400 rounded-full border border-emerald-700/30">
+                    via Token
                   </span>
-                </div>
-                {total > 0 && (
-                  <div className="text-slate-400 sm:border-l sm:border-slate-600 sm:pl-4">
-                    Summe: <span className="text-emerald-400 font-bold">{money(total)}</span>
-                  </div>
                 )}
               </div>
             </div>
-            
-            {/* Restaurant Info - Compact for Mobile */}
-            <div className="text-right sm:block">
-              <div className="text-slate-400 text-xs sm:text-sm">Restaurant</div>
-              <div className="text-sm sm:text-lg font-bold text-white truncate max-w-[120px] sm:max-w-none">
-                {slug}
+
+            {/* Cart Summary */}
+            {totalItems > 0 && (
+              <div className="flex items-center gap-3 sm:gap-4 bg-slate-800/50 backdrop-blur-xl rounded-2xl px-4 py-3 border border-slate-700/50">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                  <span className="text-slate-300 text-sm font-medium">
+                    {totalItems} {totalItems === 1 ? "Artikel" : "Artikel"}
+                  </span>
+                </div>
+                <div className="w-0.5 h-6 bg-slate-600"></div>
+                <div className="text-xl sm:text-2xl font-bold text-emerald-400">
+                  {money(total)}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="relative max-w-7xl mx-auto p-6 space-y-8">
-        {/* Error Alert */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 backdrop-blur-sm animate-slideInUp">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <div>
-                <h4 className="text-red-300 font-medium text-sm">Fehler</h4>
-                <p className="text-red-400 text-sm">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Loading State */}
+      {/* Main Content */}
+      <main className="relative max-w-7xl mx-auto px-4 py-8 sm:px-6">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 mx-auto border-4 border-slate-600/30 border-t-emerald-500 rounded-full animate-spin"></div>
-              <p className="text-slate-300 text-lg">Lade Menü...</p>
+          <div className="flex flex-col items-center justify-center py-32">
+            <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-8"></div>
+            <div className="text-xl font-semibold text-white mb-2">Menü wird geladen...</div>
+            <div className="text-slate-400">Einen Moment bitte</div>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-8">
+              <svg className="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
             </div>
+            <div className="text-2xl font-bold text-white mb-4">Fehler beim Laden</div>
+            <div className="text-slate-400 mb-8 max-w-md">{error}</div>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-8 py-3 rounded-2xl font-semibold transition-all duration-300 hover:scale-105"
+            >
+              Neu laden
+            </button>
+          </div>
+        ) : menu.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="text-8xl mb-8">🍽️</div>
+            <div className="text-2xl font-bold text-white mb-4">Keine Artikel verfügbar</div>
+            <div className="text-slate-400">Aktuell sind keine Menüartikel verfügbar.</div>
           </div>
         ) : (
           <>
             {/* Menu Grid */}
-            {menu.length === 0 ? (
-              <div className="text-center py-20 bg-slate-800/20 rounded-3xl border border-slate-700/30 backdrop-blur-sm">
-                <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-semibold text-slate-300 mb-2">Keine Artikel verfügbar</h3>
-                <p className="text-slate-500">Das Menü wird gerade aktualisiert</p>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {menu.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="animate-fadeInUp"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <MenuItemCard
-                      item={item}
-                      quantity={cart[item.id] || 0}
-                      onAdd={() => add(item.id)}
-                      onSub={() => sub(item.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Customer Info & Cart Section */}
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* Customer Info Form */}
-
-              {/* Cart Summary */}
-              <CartSummary
-                items={itemsInCart}
-                total={total}
-                onClear={clearCart}
-                onSubmit={onSubmit}
-                submitting={submitting}
-                disabled={itemsInCart.length === 0}
-                notes={customerNotes}
-                onNotesChange={setCustomerNotes}
-              />
+            <div className="grid gap-8 sm:gap-10 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 mb-16">
+              {menu.map((item) => (
+                <MenuItemCard
+                  key={item.id}
+                  item={item}
+                  quantity={cart[item.id] || 0}
+                  onAdd={() => addToCart(item.id)}
+                  onSub={() => subFromCart(item.id)}
+                />
+              ))}
             </div>
           </>
         )}
-
-        {/* Footer */}
-        <div className="text-center text-slate-500 text-sm">
-          <div className="flex items-center justify-center gap-2">
-            <span>Powered by</span>
-            <span className="font-semibold text-emerald-400">SmartQR</span>
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-          </div>
-        </div>
       </main>
 
-      {/* Custom CSS for animations */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @keyframes fadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(30px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
+      {/* Customer Form - wird nur angezeigt wenn Artikel im Warenkorb sind */}
+      {totalItems > 0 && (
+        <div className="relative bg-slate-900/80 backdrop-blur-2xl border-t border-slate-700/50 mt-16">
+          <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Form Header */}
+              <div className="text-center space-y-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white">Bestellung abschließen</h2>
+                <div className="flex items-center justify-center gap-4 bg-slate-800/50 rounded-2xl p-4 max-w-md mx-auto">
+                  <div className="text-slate-400 text-sm">Gesamtbetrag:</div>
+                  <div className="text-2xl font-bold text-emerald-400">{money(total)}</div>
+                </div>
+              </div>
+
+              {/* Warenkorb Details */}
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 bg-emerald-600 rounded-xl flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-white">Warenkorb</h3>
+                    <div className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-lg text-sm font-medium">
+                      {totalItems} {totalItems === 1 ? "Artikel" : "Artikel"}
+                    </div>
+                  </div>
+
+                  {/* Cart Items - Scrollable */}
+                  <div className="space-y-3 mb-6 max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+                    {itemsInCart.map(({ item, qty }) => (
+                      <div key={item.id} className="flex items-center justify-between py-3 border-b border-slate-700/30 last:border-0">
+                        <div className="flex-1">
+                          <div className="font-medium text-white">{item.name}</div>
+                          <div className="text-sm text-slate-400">{qty} × {money(item.price)}</div>
+                        </div>
+                        <div className="font-bold text-emerald-400">{money(item.price * qty)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Information */}
+              <div className="grid gap-6 sm:gap-8 max-w-2xl mx-auto">
+                <div className="space-y-2">
+                  <label htmlFor="customerNotes" className="block text-sm font-semibold text-slate-300">
+                    Anmerkungen (optional)
+                  </label>
+                  <textarea
+                    id="customerNotes"
+                    value={customerNotes}
+                    onChange={(e) => setCustomerNotes(e.target.value)}
+                    placeholder="Besondere Wünsche, Allergien, etc."
+                    rows={3}
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-2xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Error Display */}
+              {error && (
+                <div className="max-w-2xl mx-auto p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-6 h-6 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-red-400 font-medium">{error}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit Buttons */}
+              <div className="max-w-2xl mx-auto">
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white py-4 px-6 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={submitting || totalItems === 0}
+                  >
+                    Leeren
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || totalItems === 0}
+                    className="flex-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 disabled:from-slate-600 disabled:to-slate-700 text-white py-4 px-8 rounded-2xl font-bold text-lg transition-all duration-300 hover:scale-105 disabled:hover:scale-100 disabled:opacity-60 disabled:cursor-not-allowed shadow-2xl hover:shadow-emerald-500/25"
+                  >
+                    {submitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Sende...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                        Bestellen
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Styles */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+          from { 
+            opacity: 0; 
+            transform: scale(0.9); 
           }
-          
-          @keyframes slideInUp {
-            from {
-              opacity: 0;
-              transform: translateY(10px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
+          to { 
+            opacity: 1; 
+            transform: scale(1); 
           }
-          
-          @keyframes float {
-            0%, 100% {
-              transform: translateY(0px) rotate(0deg);
-            }
-            50% {
-              transform: translateY(-20px) rotate(5deg);
-            }
-          }
-          
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          
-          @keyframes scaleIn {
-            from {
-              opacity: 0;
-              transform: scale(0.9);
-            }
-            to {
-              opacity: 1;
-              transform: scale(1);
-            }
-          }
-          
-          .animate-fadeInUp {
-            animation: fadeInUp 0.6s ease-out forwards;
-          }
-          
-          .animate-slideInUp {
-            animation: slideInUp 0.4s ease-out forwards;
-          }
-          
-          .animate-float {
-            animation: float 8s ease-in-out infinite;
-          }
-          
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out;
-          }
-          
-          .animate-scaleIn {
-            animation: scaleIn 0.4s ease-out;
-          }
-          
-          .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-          }
-        `
-      }} />
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+        
+        .animate-scaleIn {
+          animation: scaleIn 0.3s ease-out;
+        }
+        
+        .bg-grid-pattern {
+          background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0);
+          background-size: 20px 20px;
+        }
+        
+        .scrollbar-thin {
+          scrollbar-width: thin;
+        }
+        
+        .scrollbar-thumb-slate-600::-webkit-scrollbar-thumb {
+          background-color: rgb(71 85 105);
+          border-radius: 0.375rem;
+        }
+        
+        .scrollbar-track-slate-800::-webkit-scrollbar-track {
+          background-color: rgb(30 41 59);
+          border-radius: 0.375rem;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+          background-color: rgb(71 85 105);
+          border-radius: 0.375rem;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+          background-color: rgb(30 41 59);
+          border-radius: 0.375rem;
+        }
+      `}</style>
     </div>
   );
 }
