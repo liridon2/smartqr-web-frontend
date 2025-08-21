@@ -6,6 +6,7 @@ import {
   fetchCustomerMenu,
   fetchTableNumberByToken,
   submitOrder,
+  getCurrentTotal,
 } from "../api";
 import type { MenuItem } from "../types";
 
@@ -204,13 +205,15 @@ const MenuItemCard = ({
 const FloatingActionButton = ({ 
   total, 
   itemCount, 
-  onClick 
+  onClick,
+  show = true
 }: {
   total: number;
   itemCount: number;
   onClick: () => void;
+  show?: boolean;
 }) => {
-  if (itemCount === 0) return null;
+  if (!show) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-40">
@@ -319,6 +322,11 @@ export default function CustomerOrder() {
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
+  // Table state - für Gesamtpreis des Tisches
+  const [tableTotal, setTableTotal] = useState(0);
+  const [hasOrderedBefore, setHasOrderedBefore] = useState(false);
+  const [isTablePaid, setIsTablePaid] = useState(false);
+
   // Menü laden
   useEffect(() => {
     let cancel = false;
@@ -365,6 +373,56 @@ export default function CustomerOrder() {
     resolveNumber();
     return () => { cancel = true; };
   }, [slug, tableToken]);
+
+  // Table Total laden (Gesamtpreis des Tisches)
+  useEffect(() => {
+    let cancel = false;
+    async function loadTableTotal() {
+      const finalTableNumber = resolvedTableNumber || tableNumber;
+      if (!finalTableNumber) return;
+
+      try {
+        console.log("🔍 Loading table total for table:", finalTableNumber);
+        const totalResult = await getCurrentTotal(slug, finalTableNumber);
+        console.log("📊 Table total result:", totalResult);
+        
+        const total = Number(totalResult?.data?.total ?? totalResult?.total ?? 0);
+        console.log("💰 Parsed table total:", total);
+        
+        if (!cancel) {
+          setTableTotal(total);
+          setHasOrderedBefore(total > 0);
+          console.log("✅ Set table total:", total, "hasOrderedBefore:", total > 0);
+        }
+      } catch (e: any) {
+        console.error("❌ Table total loading failed:", e);
+      }
+    }
+
+    loadTableTotal();
+    return () => { cancel = true; };
+  }, [slug, resolvedTableNumber, tableNumber]);
+
+  // Polling für Table Total (alle 10 Sekunden)
+  useEffect(() => {
+    const finalTableNumber = resolvedTableNumber || tableNumber;
+    if (!finalTableNumber) return;
+
+    const interval = setInterval(async () => {
+      try {
+        console.log("🔄 Polling table total for table:", finalTableNumber);
+        const totalResult = await getCurrentTotal(slug, finalTableNumber);
+        const total = Number(totalResult?.data?.total ?? totalResult?.total ?? 0);
+        console.log("🔄 Polled table total:", total);
+        setTableTotal(total);
+        setHasOrderedBefore(total > 0);
+      } catch (e) {
+        console.warn("⚠️ Polling table total failed:", e);
+      }
+    }, 10000); // 10 Sekunden
+
+    return () => clearInterval(interval);
+  }, [slug, resolvedTableNumber, tableNumber]);
 
   // Cart persistent speichern
   useEffect(() => {
@@ -434,6 +492,20 @@ export default function CustomerOrder() {
       setCustomerName("");
       setCustomerPhone("");
       setCustomerNotes("");
+
+      // Nach erfolgreicher Bestellung: Table Total neu laden mit Delay
+      setTimeout(async () => {
+        try {
+          console.log("🔄 Reloading table total after successful order...");
+          const totalResult = await getCurrentTotal(slug, finalTableNumber);
+          const newTotal = Number(totalResult?.data?.total ?? totalResult?.total ?? 0);
+          console.log("💰 New table total after order:", newTotal);
+          setTableTotal(newTotal);
+          setHasOrderedBefore(true);
+        } catch (e) {
+          console.warn("Failed to reload table total after order:", e);
+        }
+      }, 2000); // 2 Sekunden Delay für Backend-Update
     } catch (e: any) {
       setError(e?.message || "Bestellung fehlgeschlagen");
     } finally {
@@ -459,14 +531,15 @@ export default function CustomerOrder() {
       <PaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
-        total={total}
+        total={tableTotal + total} // Gesamtpreis: Tisch + aktueller Warenkorb
       />
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button - dauerhaft sichtbar sobald Tischnummer bekannt */}
       <FloatingActionButton
-        total={total}
+        total={tableTotal + total} // Tischpreis + aktueller Warenkorb
         itemCount={totalItems}
         onClick={() => setIsPaymentModalOpen(true)}
+        show={!!(resolvedTableNumber || tableNumber)} // Immer sichtbar wenn Tischnummer da ist
       />
 
       {/* Header */}
@@ -502,19 +575,27 @@ export default function CustomerOrder() {
               </div>
             </div>
 
-            {/* Cart Summary */}
-            {totalItems > 0 && (
+            {/* Cart Summary - Zeigt immer Tischbetrag wenn Tischnummer bekannt */}
+            {(totalItems > 0 || (resolvedTableNumber || tableNumber)) && (
               <div className="flex items-center gap-3 sm:gap-4 bg-slate-800/50 backdrop-blur-xl rounded-2xl px-4 py-3 border border-slate-700/50">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
                   <span className="text-slate-300 text-sm font-medium">
-                    {totalItems} {totalItems === 1 ? "Artikel" : "Artikel"}
+                    Tischbetrag:
                   </span>
                 </div>
                 <div className="w-0.5 h-6 bg-slate-600"></div>
                 <div className="text-xl sm:text-2xl font-bold text-emerald-400">
-                  {money(total)}
+                  {money(tableTotal + total)}
                 </div>
+                {totalItems > 0 && (
+                  <>
+                    <div className="w-0.5 h-6 bg-slate-600"></div>
+                    <div className="text-slate-400 text-sm">
+                      + {totalItems} {totalItems === 1 ? "neuer Artikel" : "neue Artikel"}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -578,9 +659,14 @@ export default function CustomerOrder() {
               <div className="text-center space-y-4">
                 <h2 className="text-2xl sm:text-3xl font-bold text-white">Bestellung abschließen</h2>
                 <div className="flex items-center justify-center gap-4 bg-slate-800/50 rounded-2xl p-4 max-w-md mx-auto">
-                  <div className="text-slate-400 text-sm">Gesamtbetrag:</div>
+                  <div className="text-slate-400 text-sm">Neue Artikel:</div>
                   <div className="text-2xl font-bold text-emerald-400">{money(total)}</div>
                 </div>
+                {tableTotal > 0 && (
+                  <div className="text-slate-400 text-sm">
+                    Aktueller Tischbetrag: <span className="text-white font-semibold">{money(tableTotal)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Warenkorb Details */}
@@ -610,11 +696,49 @@ export default function CustomerOrder() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Total */}
+                  <div className="border-t border-slate-700/50 pt-4">
+                    <div className="flex items-center justify-between text-lg">
+                      <span className="font-semibold text-slate-300">Gesamt:</span>
+                      <span className="font-bold text-2xl text-emerald-400">{money(total)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Customer Information */}
               <div className="grid gap-6 sm:gap-8 max-w-2xl mx-auto">
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="customerName" className="block text-sm font-semibold text-slate-300">
+                      Name (optional)
+                    </label>
+                    <input
+                      id="customerName"
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Ihr Name"
+                      className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-2xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label htmlFor="customerPhone" className="block text-sm font-semibold text-slate-300">
+                      Telefon (optional)
+                    </label>
+                    <input
+                      id="customerPhone"
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Ihre Telefonnummer"
+                      className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-2xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label htmlFor="customerNotes" className="block text-sm font-semibold text-slate-300">
                     Anmerkungen (optional)
